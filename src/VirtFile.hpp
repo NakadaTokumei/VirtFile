@@ -18,6 +18,31 @@ private:
     int _fd;
     int page;
     uint8_t* virtmem;
+
+    void FreeVirtMem()
+    {
+        munmap(virtmem, ArraySize);
+    }
+
+    int AllocVirtMem()
+    {
+        int status = 0;
+        virtmem = reinterpret_cast<uint8_t*>(
+            mmap(
+                nullptr,
+                ArraySize,
+                PROT_READ | PROT_WRITE,
+                MAP_PRIVATE,
+                _fd,
+                0
+            )
+        );
+        if(virtmem == nullptr)
+            status = -1;
+
+        return status;
+    }
+
 public:
     VirtFile() : _fd(0), virtmem(nullptr), page(0) {}
 
@@ -34,32 +59,61 @@ public:
         if(status < 0)
             goto _end;
 
-        virtmem = reinterpret_cast<uint8_t*>(
-            mmap(
-                nullptr,
-                ArraySize,
-                PROT_READ | PROT_WRITE,
-                MAP_PRIVATE,
-                _fd,
-                0
-            )
-        );
+        AllocVirtMem();
         if(virtmem == nullptr)
             status = -1;
-_end:
+
+    _end:
         return status;
     }
 
     int Close()
     {
+        if(virtmem)
+            FreeVirtMem();
+
         return ::close(
             _fd
         );
     }
 
+    int SetPage(int page)
+    {
+        int status = 0;
+
+        if(virtmem)
+            FreeVirtMem();
+        
+        status = lseek(
+            _fd,
+            page * ArraySize,
+            SEEK_CUR
+        );
+        if(status < 0)
+            goto _end;
+
+        status = AllocVirtMem();
+
+        this->page = page;
+
+    _end:
+        return status;
+    }
+
+    int Next()
+    {
+        return SetPage(page + 1);
+    }
+
+    int Prev()
+    {
+        return SetPage(page - 1);
+    }
+
     uint8_t& operator[](unsigned int i)
     {
         BOOST_STATIC_ASSERT_MSG(virtmem == nullptr, "Failed to call mmap function");
+        BOOST_STATIC_ASSERT_MSG(i >= ArraySize, "Unavailable index");
 
         return virtmem[i];
     }
