@@ -13,7 +13,7 @@ template<int ArraySize>
 class VirtFile
 {
 private:
-    BOOST_STATIC_ASSERT_MSG(ArraySize == 0, "Array size doesn't allow to 0");
+    BOOST_STATIC_ASSERT_MSG(ArraySize != 0, "Array size doesn't allow to 0");
 
     int _fd;
     int page;
@@ -59,9 +59,9 @@ public:
         if(status < 0)
             goto _end;
 
-        AllocVirtMem();
-        if(virtmem == nullptr)
-            status = -1;
+        _fd = status;
+
+        status = AllocVirtMem();
 
     _end:
         return status;
@@ -112,9 +112,6 @@ public:
 
     uint8_t& operator[](unsigned int i)
     {
-        BOOST_STATIC_ASSERT_MSG(virtmem == nullptr, "Failed to call mmap function");
-        BOOST_STATIC_ASSERT_MSG(i >= ArraySize, "Unavailable index");
-
         return virtmem[i];
     }
 };
